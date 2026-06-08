@@ -6,7 +6,8 @@ __pycache__/
 .env
 
 # Secrets (never commit API keys)
-.streamlit/secrets.toml
+.streamlit/
+**/.streamlit/
 
 # Model cache (large binary files)
 cache/
