@@ -1,0 +1,10 @@
+fair-esm
+faiss-cpu
+groq
+pandas
+requests
+sentence-transformers
+streamlit
+torch
+torchvision
+transformers
