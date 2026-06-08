@@ -11,8 +11,10 @@ __pycache__/
 # Model cache (large binary files)
 cache/
 
-# Faiss index and chunked data (reproducible from pipeline)
+# Model cache (exclude large model weights but keep app assets)
 *.index
+!kinase_faiss.index
+!User Interface/kinase_faiss.index
 
 # Data files
 *.tsv
