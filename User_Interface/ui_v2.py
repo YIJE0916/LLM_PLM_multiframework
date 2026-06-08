@@ -387,8 +387,6 @@ with st.expander("💡 Example questions"):
 if submit and user_question.strip():
     # Layout with answer at top
     answer_placeholder = st.empty()
-    details_expander = st.expander("🔍 Pipeline Details", expanded=False)
-
     # Progress area (will be removed after completion)
     progress_container = st.container()
     with progress_container:
@@ -399,125 +397,109 @@ if submit and user_question.strip():
     try:
         # Stage 1
         progress_bar.progress(5, text="Stage 1/4: Extracting kinase & mutation...")
-        with details_expander:
-            with st.status("Stage 1: Query Orchestration", expanded=False) as status1:
-                query_info = decompose_query(user_question)
-                kinase = query_info.get("kinase") or None
-                mutation = query_info.get("mutation")
-                drug = query_info.get("drug")
-                st.write(f"Kinase: {kinase}  |  Mutation: {mutation}  |  Drug: {drug}")
-                status1.update(label="Stage 1 complete ✅", state="complete")
+        with st.status("Stage 1: Query Orchestration", expanded=False) as status1:
+            query_info = decompose_query(user_question)
+            kinase = query_info.get("kinase") or None
+            mutation = query_info.get("mutation")
+            drug = query_info.get("drug")
+            st.write(f"Kinase: {kinase}  |  Mutation: {mutation}  |  Drug: {drug}")
+            status1.update(label="Stage 1 complete ✅", state="complete")
         progress_bar.progress(25, text="Stage 1 complete ✅")
 
         # Stage 2
         progress_bar.progress(30, text="Stage 2/4: Retrieving literature...")
-        with details_expander:
-            with st.status("Stage 2: RAG Retrieval", expanded=False) as status2:
-                chunks = retrieve_chunks(
-                    embedder, faiss_index, chunks_list, user_question, kinase=kinase
+        with st.status("Stage 2: RAG Retrieval", expanded=False) as status2:
+            chunks = retrieve_chunks(
+                embedder, faiss_index, chunks_list, user_question, kinase=kinase
+            )
+            st.write(f"Retrieved {len(chunks)} relevant chunks.")
+            if chunks:
+                st.text_area(
+                    "Sample chunk:",
+                    chunks[0][:300] + "...",
+                    height=100,
+                    disabled=True,
                 )
-                st.write(f"Retrieved {len(chunks)} relevant chunks.")
-                if chunks:
-                    st.text_area(
-                        "Sample chunk:",
-                        chunks[0][:300] + "...",
-                        height=100,
-                        disabled=True,
-                    )
-                status2.update(label="Stage 2 complete ✅", state="complete")
+            status2.update(label="Stage 2 complete ✅", state="complete")
         progress_bar.progress(50, text="Literature retrieved ✅")
 
         # Stage 2b
         progress_bar.progress(55, text="Stage 2b/4: Fetching sequence...")
-        with details_expander:
-            with st.status(
-                "Stage 2b: Sequence Fetch & Mutation", expanded=False
-            ) as status2b:
-                wt_seq = None
-                mut_seq = None
-                mut_pos = None
-                try:
-                    if kinase:
-                        acc, wt_seq = fetch_wt_sequence(kinase)
-                        st.write(f"Sequence: {acc} ({len(wt_seq)} aa)")
-                        if mutation:
-                            mut_pos, mut_aa_wt, mut_aa_mut, mut_seq = apply_mutation(
-                                wt_seq, mutation
-                            )
-                            st.write(
-                                f"Applied {mutation} at position {mut_pos}: {mut_aa_wt} → {mut_aa_mut}"
-                            )
-                        else:
-                            st.write("No mutation specified.")
+        with st.status("Stage 2b: Sequence Fetch & Mutation", expanded=False) as status2b:
+            wt_seq = None
+            mut_seq = None
+            mut_pos = None
+            try:
+                if kinase:
+                    acc, wt_seq = fetch_wt_sequence(kinase)
+                    st.write(f"Sequence: {acc} ({len(wt_seq)} aa)")
+                    if mutation:
+                        mut_pos, mut_aa_wt, mut_aa_mut, mut_seq = apply_mutation(
+                            wt_seq, mutation
+                        )
+                        st.write(
+                            f"Applied {mutation} at position {mut_pos}: {mut_aa_wt} → {mut_aa_mut}"
+                        )
                     else:
-                        st.write("No kinase identified - skipping sequence fetch.")
-                except Exception as e:
-                    st.warning(f"⚠️ Sequence fetch failed: {e}")
-                status2b.update(label="Stage 2b complete ✅", state="complete")
+                        st.write("No mutation specified.")
+                else:
+                    st.write("No kinase identified - skipping sequence fetch.")
+            except Exception as e:
+                st.warning(f"⚠️ Sequence fetch failed: {e}")
+            status2b.update(label="Stage 2b complete ✅", state="complete")
         progress_bar.progress(60, text="Sequence ready ✅")
 
         # Stage 3
         progress_bar.progress(65, text="Stage 3/4: Running ESM-2 mutation scoring...")
-        with details_expander:
-            with st.status(
-                "Stage 3: ESM-2 Mutation Scoring", expanded=False
-            ) as status3:
-                plm_result = {}
-                if mutation and wt_seq:
-                    try:
-                        plm_result = score_mutation_esm(
-                            wt_seq, mutation, tokenizer_esm, model_esm, aa_to_id
-                        )
-                        delta = plm_result["delta_ll"]
-                        label = "disruptive ⚠️" if delta < -0.5 else "neutral"
-                        st.metric(
-                            "ΔLL (logp_mut - logp_wt)",
-                            f"{delta:.4f}",
-                            delta_color="inverse",
-                        )
-                        st.write(f"Interpretation: {label}")
-                    except Exception as e:
-                        st.warning(f"⚠️ Mutation scoring failed: {e}")
-                else:
-                    st.write("No mutation or sequence available - skipping scoring.")
-                status3.update(label="Stage 3 complete ✅", state="complete")
+        with st.status("Stage 3: ESM-2 Mutation Scoring", expanded=False) as status3:
+            plm_result = {}
+            if mutation and wt_seq:
+                try:
+                    plm_result = score_mutation_esm(
+                        wt_seq, mutation, tokenizer_esm, model_esm, aa_to_id
+                    )
+                    delta = plm_result["delta_ll"]
+                    label = "disruptive ⚠️" if delta < -0.5 else "neutral"
+                    st.metric(
+                        "ΔLL (logp_mut - logp_wt)",
+                        f"{delta:.4f}",
+                        delta_color="inverse",
+                    )
+                    st.write(f"Interpretation: {label}")
+                except Exception as e:
+                    st.warning(f"⚠️ Mutation scoring failed: {e}")
+            else:
+                st.write("No mutation or sequence available - skipping scoring.")
+            status3.update(label="Stage 3 complete ✅", state="complete")
         progress_bar.progress(80, text="Mutation scoring complete ✅")
 
         # Stage 4
         progress_bar.progress(85, text="Stage 4/4: Cross-modal verification...")
-        with details_expander:
-            with st.status(
-                "Stage 4: Cross-modal Verification", expanded=False
-            ) as status4:
-                try:
-                    final_answer = cross_modal_verify(
-                        user_question, plm_result, mutation, drug, chunks=chunks
-                    )
-                except Exception as e:
-                    final_answer = f"Error during final verification: {e}"
-                status4.update(label="Stage 4 complete ✅", state="complete")
+        with st.status("Stage 4: Cross-modal Verification", expanded=False) as status4:
+            try:
+                final_answer = cross_modal_verify(
+                    user_question, plm_result, mutation, drug, chunks=chunks
+                )
+            except Exception as e:
+                final_answer = f"Error during final verification: {e}"
+            status4.update(label="Stage 4 complete ✅", state="complete")
         progress_bar.progress(95, text="Finalising answer...")
 
         # Complete
         total_time = time.time() - overall_start
         progress_bar.progress(100, text="Analysis complete!")
         time.sleep(0.3)
-        progress_container.empty()  # remove the progress bar entirely
+        progress_container.empty()
 
-        # Show the answer prominently
         with answer_placeholder.container():
             st.header("📋 Final Answer")
             st.markdown(final_answer, unsafe_allow_html=True)
             st.caption(f"Pipeline completed in {total_time:.1f} seconds")
 
-        # Optionally collapse the details expander now
-        # (Streamlit doesn't support programmatic collapse, but we make it non-expanded by default)
-
     except Exception as e:
         progress_container.empty()
         answer_placeholder.error(f"❌ Pipeline failed: {e}")
-        with details_expander:
-            details_expander.exception(e)
+        st.exception(e)
 
 else:
     st.info(
