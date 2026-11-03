@@ -1,6 +1,7 @@
 # Kinase Biology AI — RAG + ESM-2 Chatbot
 
 An AI-powered chatbot for kinase biology that combines **retrieval-augmented generation (RAG)**, **protein language model mutation scoring (ESM-2)**, and **LLM synthesis (LLaMA-3 via Groq)** to answer scientific questions about kinase mutations and drug resistance.
+The UI interactive chatbot: https://huggingface.co/spaces/yije/kinase-ai
 
 ---
 
